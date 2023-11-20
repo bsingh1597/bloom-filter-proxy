@@ -1,4 +1,4 @@
-package com.proxy.bloom.proxyserver;
+package edu.dcs;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -7,6 +7,8 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -16,6 +18,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ProxyServerImpl implements ProxyServer{
 
     private static ConcurrentHashMap<String,String> cache = new ConcurrentHashMap<>();
+
+    public ProxyServerImpl(BloomFilter filter) {
+    }
 
     /**
     * Creates server cache.
@@ -93,7 +98,7 @@ public class ProxyServerImpl implements ProxyServer{
         URL url;
         StringBuilder responseContent = null;
         try {
-            url = new URL(urlString);
+            url = new URI(urlString).toURL();
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod(method);
             int responseCode = connection.getResponseCode();
@@ -107,6 +112,8 @@ public class ProxyServerImpl implements ProxyServer{
             }
             reader.close();
         } catch (IOException e) {
+            e.printStackTrace();
+        } catch (URISyntaxException e) {
             e.printStackTrace();
         }
 

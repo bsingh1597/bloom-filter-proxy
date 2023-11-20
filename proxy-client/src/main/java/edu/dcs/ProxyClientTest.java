@@ -1,4 +1,4 @@
-package com.proxy.bloom.proxyserver;
+package edu.dcs;
 
 import java.io.BufferedReader;
 import java.io.IOException;
