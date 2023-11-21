@@ -12,7 +12,7 @@ public class ProxyServerMain {
     public static void main(String[] args) {
         int port = 8082;
         BloomFilter filter = new BloomFilter(50, 2);
-        ProxyServer server = new ProxyServerImpl(filter);
+        ProxyServer server = new ProxyServerImpl(filter, "255.255.255.255",9876, 15000);
         ServerSocket serverSocket = null;
         try {
             serverSocket = server.createSocket(port);

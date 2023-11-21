@@ -4,12 +4,16 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.BitSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -18,8 +22,20 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ProxyServerImpl implements ProxyServer{
 
     private static ConcurrentHashMap<String,String> cache = new ConcurrentHashMap<>();
+    BloomFilter filter;
+    ConcurrentHashMap<URL,BitSet> filterArray;
+    String broadcastAddress;
+    int broadcastPort;
+    int broadcastFrequency;
 
-    public ProxyServerImpl(BloomFilter filter) {
+    public ProxyServerImpl(BloomFilter filter, String broadcastAddress, int broadcastPort, int broadcastFrequency) {
+        filter = this.filter;
+        broadcastAddress = this.broadcastAddress;
+        broadcastPort = this.broadcastPort;
+        broadcastFrequency = this.broadcastFrequency;
+        
+        Thread broadCastThread = new Thread(() -> broadcastServer());
+        broadCastThread.start();
     }
 
     /**
@@ -46,8 +62,12 @@ public class ProxyServerImpl implements ProxyServer{
             // Check if url exists in the cache
             String response = cache.get(actualUrl);
 
-            // if response is null then Call internet
             if(response == null) {
+
+                // Check in the Bloom Filter of the Proxy Servers
+
+
+                // if response is null then Call internet
                 response = fetchRequestFromInternet(actualUrl, method);
                 // After fetch from internet put in cache
                 appendCache(actualUrl, response);
@@ -119,6 +139,63 @@ public class ProxyServerImpl implements ProxyServer{
 
         return responseContent != null ? responseContent.toString() : null;
         
+    }
+
+    public void broadcastClient() {
+
+        try (DatagramSocket clientSocket = new DatagramSocket(broadcastPort)) {
+
+            // Buffer to receive incoming data
+            byte[] receiveData = new byte[1024];
+            System.out.println("Client waiting for broadcast messages...");
+            // Create a DatagramPacket to receive the broadcast message
+            DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+
+            while (true) {// Receive the broadcast message
+                clientSocket.receive(receivePacket);
+
+                // Extract and print the received message
+                BitSet bitArray = BitSet.valueOf(receivePacket.getData());
+                System.out.println("Received message: " + bitArray);
+                System.out.println("Received from: " + receivePacket.getSocketAddress());
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+    * run in thread serving as the braodcast server.
+    *
+    */
+    public void broadcastServer() {
+
+        try(DatagramSocket serverSocket = new DatagramSocket()) {
+
+            // Enable broadcasting
+            serverSocket.setBroadcast(true);
+
+            while (true) {
+                // Create a DatagramPacket to send the broadcast message
+                DatagramPacket packet = new DatagramPacket(
+                        filter.getBitSet().toByteArray(),
+                        filter.getBitSet().length(),
+                        InetAddress.getByName(broadcastAddress), // Broadcast address
+                        broadcastPort);
+
+                System.out.println("Filter broadcasting...");
+
+                // Send the broadcast message
+                serverSocket.send(packet);
+
+                System.out.println("Broadcast message sent.");
+                Thread.sleep(broadcastFrequency);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
     
 }

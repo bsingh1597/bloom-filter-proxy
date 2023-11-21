@@ -66,4 +66,9 @@ public class BloomFilter {
     private int hashFunction3(String element) {
         return Hashing.murmur3_128().hashString(element, StandardCharsets.UTF_8).asInt();
     }
+
+    public BitSet getBitSet() {
+        return filter;
+    }
+
 }
