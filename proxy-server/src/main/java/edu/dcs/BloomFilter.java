@@ -14,6 +14,9 @@ public class BloomFilter {
         this.filter = new BitSet(size);
         this.size = size;
         this.numHashFunctions = numHashFunctions;
+        this.filter.set(3);
+        this.filter.set(5);
+        this.filter.set(31);
     }
 
     public void add(String element) {

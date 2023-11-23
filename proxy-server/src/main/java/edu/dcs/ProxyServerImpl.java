@@ -5,9 +5,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.DatagramPacket;
-import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.MulticastSocket;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URI;
@@ -19,30 +20,36 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * ProxyServerImpl
  */
-public class ProxyServerImpl implements ProxyServer{
+public class ProxyServerImpl implements ProxyServer {
 
-    private static ConcurrentHashMap<String,String> cache = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<String, String> cache = new ConcurrentHashMap<>();
+    private static Character DELIMITER = ':';
     BloomFilter filter;
-    ConcurrentHashMap<URL,BitSet> filterArray;
-    String broadcastAddress;
-    int broadcastPort;
-    int broadcastFrequency;
+    ConcurrentHashMap<URL, BitSet> filterArray;
+    String multicastGroup;
+    int multicastPort;
+    int publishFrequecy;
+    int proxyPort;
 
-    public ProxyServerImpl(BloomFilter filter, String broadcastAddress, int broadcastPort, int broadcastFrequency) {
-        filter = this.filter;
-        broadcastAddress = this.broadcastAddress;
-        broadcastPort = this.broadcastPort;
-        broadcastFrequency = this.broadcastFrequency;
-        
-        Thread broadCastThread = new Thread(() -> broadcastServer());
-        broadCastThread.start();
+    public ProxyServerImpl(BloomFilter filter, int proxyPort, String multicastGroup, int multicastPort,
+            int publishFrequecy) {
+        this.filter = filter;
+        this.proxyPort = proxyPort;
+        this.multicastGroup = multicastGroup;
+        this.multicastPort = multicastPort;
+        this.publishFrequecy = publishFrequecy;
+
+        Thread publisherThread = new Thread(() -> multicastPublisher());
+        publisherThread.start();
+        Thread receiverThread = new Thread(() -> multicastReciever());
+        receiverThread.start();
     }
 
     /**
-    * Creates server cache.
-    *
-    * @param port Port on which server will listen.
-    */
+     * Creates server cache.
+     *
+     * @param port Port on which server will listen.
+     */
     @Override
     public ServerSocket createSocket(int port) throws IOException {
         return new ServerSocket(port);
@@ -62,17 +69,16 @@ public class ProxyServerImpl implements ProxyServer{
             // Check if url exists in the cache
             String response = cache.get(actualUrl);
 
-            if(response == null) {
+            if (response == null) {
 
                 // Check in the Bloom Filter of the Proxy Servers
-
 
                 // if response is null then Call internet
                 response = fetchRequestFromInternet(actualUrl, method);
                 // After fetch from internet put in cache
                 appendCache(actualUrl, response);
             }
-            
+
             sendReponseToClient(clientSocket, response);
 
         } catch (IOException e) {
@@ -81,11 +87,11 @@ public class ProxyServerImpl implements ProxyServer{
     }
 
     /**
-    * Sends reponse to client.
-    *
-    * @param clientSocket Accepted socket in the ServerSocket.
-    * @param response Text Reponse from the url.
-    */
+     * Sends reponse to client.
+     *
+     * @param clientSocket Accepted socket in the ServerSocket.
+     * @param response     Text Reponse from the url.
+     */
     @Override
     public void sendReponseToClient(Socket clientSocket, String response) {
 
@@ -103,16 +109,16 @@ public class ProxyServerImpl implements ProxyServer{
 
     @Override
     public void appendCache(String url, String content) {
-        cache.put(url,content);
+        cache.put(url, content);
     }
 
     /**
-    * Fetches request from the url.
-    *
-    * @param urlString Url to call from internet.
-    * @param method Method of the API - For now we are using only GET requests.
-    * @return Text reponse form internet.
-    */
+     * Fetches request from the url.
+     *
+     * @param urlString Url to call from internet.
+     * @param method    Method of the API - For now we are using only GET requests.
+     * @return Text reponse form internet.
+     */
     @Override
     public String fetchRequestFromInternet(String urlString, String method) {
         URL url;
@@ -138,64 +144,88 @@ public class ProxyServerImpl implements ProxyServer{
         }
 
         return responseContent != null ? responseContent.toString() : null;
-        
+
     }
 
-    public void broadcastClient() {
+    public void multicastReciever() {
 
-        try (DatagramSocket clientSocket = new DatagramSocket(broadcastPort)) {
+        try {
+            InetAddress group = InetAddress.getByName(multicastGroup);
 
-            // Buffer to receive incoming data
-            byte[] receiveData = new byte[1024];
-            System.out.println("Client waiting for broadcast messages...");
-            // Create a DatagramPacket to receive the broadcast message
-            DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+            try (MulticastSocket socket = new MulticastSocket(multicastPort)) {
 
-            while (true) {// Receive the broadcast message
-                clientSocket.receive(receivePacket);
+                socket.joinGroup(new InetSocketAddress(group, multicastPort), null);
 
-                // Extract and print the received message
-                BitSet bitArray = BitSet.valueOf(receivePacket.getData());
-                System.out.println("Received message: " + bitArray);
-                System.out.println("Received from: " + receivePacket.getSocketAddress());
+                while (true) {
+                    byte[] buffer = new byte[filter.getBitSet().toByteArray().length];
+                    DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
+
+                    socket.receive(receivePacket);
+
+                    String port = extractSubstring(new String(receivePacket.getData()), ":");
+
+                    System.out.println(port);
+
+                    BitSet bitArray = BitSet.valueOf(receivePacket.getData());
+                    System.out.println("Received message: " + bitArray);
+                    System.out.println("Received from: " + receivePacket.getPort());
+                }
             }
 
-        } catch (Exception e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     /**
-    * run in thread serving as the braodcast server.
-    *
-    */
-    public void broadcastServer() {
+     * run in thread serving as the braodcast server.
+     *
+     */
+    public void multicastPublisher() {
+        try { 
+            InetAddress group = InetAddress.getByName(multicastGroup);
+            try (MulticastSocket socket = new MulticastSocket()) {
+                // Set the time-to-live for the message
+                socket.setTimeToLive(5);
 
-        try(DatagramSocket serverSocket = new DatagramSocket()) {
+                byte[] buffer = appendByteArrays(getDelimitedPort().getBytes(), filter.getBitSet().toByteArray());
 
-            // Enable broadcasting
-            serverSocket.setBroadcast(true);
-
-            while (true) {
-                // Create a DatagramPacket to send the broadcast message
-                DatagramPacket packet = new DatagramPacket(
-                        filter.getBitSet().toByteArray(),
-                        filter.getBitSet().length(),
-                        InetAddress.getByName(broadcastAddress), // Broadcast address
-                        broadcastPort);
-
-                System.out.println("Filter broadcasting...");
-
-                // Send the broadcast message
-                serverSocket.send(packet);
-
-                System.out.println("Broadcast message sent.");
-                Thread.sleep(broadcastFrequency);
+                while (true) {
+                    System.out.println("Sending");
+                    DatagramPacket packet = new DatagramPacket(buffer, buffer.length, group, multicastPort);
+                    socket.send(packet);
+                    System.out.println("Message sent.");
+                    try {
+                        Thread.sleep(15000);
+                    } catch (InterruptedException e) { 
+                        e.printStackTrace();
+                    }
+                }
             }
 
-        } catch (Exception e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
-    
+
+    private String getDelimitedPort() {
+        return String.valueOf(proxyPort) + ":";
+    }
+
+    private static byte[] appendByteArrays(byte[] array1, byte[] array2) {
+        byte[] resultArray = new byte[array1.length + array2.length];
+        System.arraycopy(array1, 0, resultArray, 0, array1.length);
+        System.arraycopy(array2, 0, resultArray, array1.length, array2.length);
+        return resultArray;
+    }
+
+    private String extractSubstring(String inputString, String delimiter) {
+        int index = inputString.indexOf(delimiter);
+        if (index != -1) {
+            return inputString.substring(0, index + 1);
+        } else {
+            return "";
+        }
+    }
+
 }

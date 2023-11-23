@@ -10,13 +10,13 @@ import java.net.Socket;
 public class ProxyServerMain {
 
     public static void main(String[] args) {
-        int port = 8082;
+        int proxyPort = 8083;
         BloomFilter filter = new BloomFilter(50, 2);
-        ProxyServer server = new ProxyServerImpl(filter, "255.255.255.255",9876, 15000);
+        ProxyServer server = new ProxyServerImpl(filter, proxyPort,"224.0.0.1",9876, 15000);
         ServerSocket serverSocket = null;
         try {
-            serverSocket = server.createSocket(port);
-            System.out.println("Proxy server running on port " + port);
+            serverSocket = server.createSocket(proxyPort);
+            System.out.println("Proxy server running on port " + proxyPort);
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
