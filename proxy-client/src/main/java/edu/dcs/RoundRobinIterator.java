@@ -6,7 +6,7 @@ import java.util.List;
 public class RoundRobinIterator<T> implements Iterable<T> {
 
     List<T> coll;
-
+    int index = 0;
     public RoundRobinIterator(List<T> coll) {
         this.coll = coll;
     }
@@ -14,9 +14,7 @@ public class RoundRobinIterator<T> implements Iterable<T> {
     @Override
     public Iterator<T> iterator() {
         return new Iterator<T>() {
-
-            int index = 0;
-
+            
             @Override
             public boolean hasNext() {
                 return true;

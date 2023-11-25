@@ -1,6 +1,7 @@
 package edu.dcs;
 
 import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
@@ -13,44 +14,72 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvException;
 
 public class ProxyClientTest {
     public static void main(String[] args) {
-        int proxyPort = 8083; // Change this to the port of your proxy server
 
+        List<Integer> proxyPort = new ArrayList<>();
+        proxyPort.add(8082);
+        proxyPort.add(8083);
+        proxyPort.add(8084);
+
+        RoundRobinIterator<Integer> roundRobinIterator = new RoundRobinIterator<>(proxyPort);
+
+        String filePath = "/Users/bsingh/Documents/College/Advanced DCS/Course Project/bloom-filter-proxy/proxy-client/src/main/resources/url-list.csv"; 
+
+        try (CSVReader csvReader = new CSVReader(new FileReader(filePath))) {
+            List<String[]> records = csvReader.readAll();
+
+            records.forEach(url -> {
+                callProxyServer(roundRobinIterator.iterator().next(), url[0]);
+            });
+
+        } catch (IOException | CsvException e) {
+            e.printStackTrace();
+        }
+
+        System.out.println("Completed with all the URLS");
+    }
+
+    private static void callProxyServer(Integer proxyPort, String stringUrl) {
+        try {
+            URL url;
             try {
-                // Create a URL object
-                URL url;
-                try {
-                    url = getUrl(proxyPort, "https://www.javatpoint.com/swagger");
+                System.out.println("POrt: "+proxyPort+" Calling URL: "+stringUrl);
+                url = getUrl(proxyPort, stringUrl);
 
-                    // Open a connection to the URL
-                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                // Open a connection to the URL
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
-                    // Set the request method to GET
-                    connection.setRequestMethod("GET");
+                // Set the request method to GET
+                connection.setRequestMethod("GET");
+                // Get the response code
+                int responseCode = connection.getResponseCode();
+                System.out.println("Response Code: " + responseCode);
 
-                    // Get the response code
-                    int responseCode = connection.getResponseCode();
-                    System.out.println("Response Code: " + responseCode);
+                // Read the response
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                String line;
+                // StringBuilder response = new StringBuilder();
 
-                    // Read the response
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                    String line;
-                    // StringBuilder response = new StringBuilder();
-
-                    while ((line = reader.readLine()) != null) {
-                        System.out.println("Successfully fetched the response");
-                    }
-
-                } catch (SocketException se) {
-                    se.printStackTrace();
+                while ((line = reader.readLine()) != null) {
+                    System.out.println("Successfully fetched the response");
+                    break;
                 }
-            } catch (URISyntaxException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
+
+            } catch (SocketException se) {
+                se.printStackTrace();
             }
+        } catch (URISyntaxException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public static URL getUrl(int portNumber, String internetUrl)

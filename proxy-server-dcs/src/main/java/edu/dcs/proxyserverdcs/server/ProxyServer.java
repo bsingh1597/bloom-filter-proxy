@@ -98,7 +98,8 @@ public class ProxyServer {
         // Check if url exists in the cache
         String response = cache.get(url);
 
-        if (response == null) {
+        try {
+            if (response == null) {
             // Case of false positive
             totalNumOfFalsePositive++;
             // if response is null then Call internet
@@ -112,6 +113,12 @@ public class ProxyServer {
             // Case of true positive
             totalNumOfTruePositive++;
         }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        logger.info("****** Total Requests On this Proxy Server: {}", totalNumOfDirectRequests);
+        logger.info("****** False posititves: {}", totalNumOfFalsePositive);
+        logger.info("****** True posititves: {}", totalNumOfTruePositive);
         return response;
     }
 
@@ -180,6 +187,7 @@ public class ProxyServer {
             responseContent = new StringBuilder();
             while ((line = reader.readLine()) != null) {
                 responseContent.append(line);
+                break;
             }
             reader.close();
         } catch (IOException e) {
@@ -238,8 +246,8 @@ public class ProxyServer {
             BitSet receivedBitSet = multicastMessage.getBitSet();
 
             // BitSet bitArray = BitSet.valueOf(receivePacket.getData());
-            logger.info("Received bitset {}", receivedBitSet);
-            logger.info("Received from {}", portNum);
+            // logger.info("Received bitset {}", receivedBitSet);
+            // logger.info("Received from {}", portNum);
         } catch (ClassNotFoundException | IOException e) {
             e.printStackTrace();
         }
@@ -258,7 +266,7 @@ public class ProxyServer {
                 socket.setTimeToLive(5);
 
                 while (true) {
-                    logger.info("Publish message");
+                    // logger.info("Publish message");
                     // Create an object representing both the string and BitSet
                     MessageObject messageObject = new MessageObject(serverPort, filter.getBitSet());
                     // Serialize the object to JSON
