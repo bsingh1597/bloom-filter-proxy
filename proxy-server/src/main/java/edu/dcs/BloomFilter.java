@@ -1,6 +1,9 @@
-package edu.advanced.dcs;
+package edu.dcs;
 
+import java.nio.charset.StandardCharsets;
 import java.util.BitSet;
+
+import com.google.common.hash.Hashing;
 
 public class BloomFilter {
     private BitSet filter;
@@ -11,42 +14,64 @@ public class BloomFilter {
         this.filter = new BitSet(size);
         this.size = size;
         this.numHashFunctions = numHashFunctions;
+        this.filter.set(3);
+        this.filter.set(5);
+        this.filter.set(31);
     }
 
     public void add(String element) {
-        for (int i = 0; i < numHashFunctions; i++) {
-            int hash = hash(element, i);
-            filter.set(hash % size, true);
+
+        if (numHashFunctions == 2) {
+            filter.set(hashFunction1(element) % size, true);
+            filter.set(hashFunction2(element) % size, true);
+        } else if (numHashFunctions == 3) {
+            filter.set(hashFunction1(element) % size, true);
+            filter.set(hashFunction2(element) % size, true);
+            filter.set(hashFunction3(element) % size, true);
         }
     }
 
     public boolean contains(String element) {
-        for (int i = 0; i < numHashFunctions; i++) {
-            int hash = hash(element, i);
-            if (!filter.get(hash % size)) {
+
+        if (numHashFunctions == 2) {
+            if (!filter.get(hashFunction1(element) % size)) {
+                return false;
+            }
+            if (!filter.get(hashFunction2(element) % size)) {
+                return false;
+            }
+        } else if (numHashFunctions == 3) {
+            if (!filter.get(hashFunction1(element) % size)) {
+                return false;
+            }
+            if (!filter.get(hashFunction2(element) % size)) {
+                return false;
+            }
+            if (!filter.get(hashFunction3(element) % size)) {
                 return false;
             }
         }
         return true;
     }
 
-    private int hash(String element, int hashFunctionIndex) {
-        // You can use different hash functions here
-        // For simplicity, we're using the built-in hashCode() method
-        return (element.hashCode() + hashFunctionIndex) & Integer.MAX_VALUE;
+    private int hashFunction1(String element) {
+        return element.hashCode();
     }
 
-    public static void main(String[] args) {
-        BloomFilter bloomFilter = new BloomFilter(1000, 3);
-
-        bloomFilter.add("apple");
-        bloomFilter.add("banana");
-        bloomFilter.add("orange");
-
-        System.out.println(bloomFilter.contains("apple"));    // true
-        System.out.println(bloomFilter.contains("grape"));    // false (not added)
-        System.out.println(bloomFilter.contains("banana"));   // true
-        System.out.println(bloomFilter.contains("kiwi"));     // false (not added)
+    private int hashFunction2(String element) {
+        int hash = 5381;
+        for (int i = 0; i < element.length(); i++) {
+            hash = ((hash << 5) + hash) + element.charAt(i);
+        }
+        return hash;
     }
+
+    private int hashFunction3(String element) {
+        return Hashing.murmur3_128().hashString(element, StandardCharsets.UTF_8).asInt();
+    }
+
+    public BitSet getBitSet() {
+        return filter;
+    }
+
 }
-
