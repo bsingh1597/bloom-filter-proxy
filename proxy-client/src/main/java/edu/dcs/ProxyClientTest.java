@@ -3,45 +3,69 @@ package edu.dcs;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.Socket;
+import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.InetAddress;
+import java.net.MalformedURLException;
 import java.net.SocketException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.net.UnknownHostException;
 
 public class ProxyClientTest {
     public static void main(String[] args) {
-        String proxyHost = "localhost"; // Change this to the address of your proxy server
-        int proxyPort = 8082; // Change this to the port of your proxy server
+        int proxyPort = 8083; // Change this to the port of your proxy server
 
-        while (true) {
             try {
-                Socket proxySocket = new Socket(proxyHost, proxyPort);
-
-                PrintWriter proxyWriter = new PrintWriter(proxySocket.getOutputStream(), true);
-                proxyWriter.println("GET https://www.javatpoint.com/simple-html-pages HTTP/1.1");
-                proxyWriter.println(); // Blank line indicates end of headers
-
-                BufferedReader proxyReader = new BufferedReader(new InputStreamReader(proxySocket.getInputStream()));
-
-                // String responseLine;
-                while ((proxyReader.readLine()) != null) {
-                    // System.out.println("Proxy Response: " + responseLine);
-                    System.out.println("Successfully fetched the response");
-                }
-
-                proxySocket.close();
-
-            } catch (SocketException se) {
+                // Create a URL object
+                URL url;
                 try {
-                    Thread.sleep(10000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    url = getUrl(proxyPort, "https://www.javatpoint.com/swagger");
+
+                    // Open a connection to the URL
+                    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+                    // Set the request method to GET
+                    connection.setRequestMethod("GET");
+
+                    // Get the response code
+                    int responseCode = connection.getResponseCode();
+                    System.out.println("Response Code: " + responseCode);
+
+                    // Read the response
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                    String line;
+                    // StringBuilder response = new StringBuilder();
+
+                    while ((line = reader.readLine()) != null) {
+                        System.out.println("Successfully fetched the response");
+                    }
+
+                } catch (SocketException se) {
+                    se.printStackTrace();
                 }
-                continue;
+            } catch (URISyntaxException e) {
+                e.printStackTrace();
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            break;
-        }
+    }
+
+    public static URL getUrl(int portNumber, String internetUrl)
+            throws UnknownHostException, UnsupportedEncodingException, MalformedURLException, URISyntaxException {
+
+        StringBuilder urlBuilder = new StringBuilder("http://");
+        urlBuilder.append(InetAddress.getLocalHost().getHostAddress());
+        urlBuilder.append(":");
+        urlBuilder.append(portNumber);
+        urlBuilder.append("/proxy");
+        urlBuilder.append("?");
+        urlBuilder.append(("url="));
+        urlBuilder.append(URLEncoder.encode(internetUrl, "UTF-8"));
+
+        return new URI(urlBuilder.toString()).toURL();
+
     }
 }
-
