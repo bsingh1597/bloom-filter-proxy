@@ -23,6 +23,8 @@ import com.opencsv.exceptions.CsvException;
 public class ProxyClientTest {
     public static void main(String[] args) {
 
+        int urlCount=0;
+
         List<Integer> proxyPort = new ArrayList<>();
         proxyPort.add(8082);
         proxyPort.add(8083);
@@ -35,9 +37,11 @@ public class ProxyClientTest {
         try (CSVReader csvReader = new CSVReader(new FileReader(filePath))) {
             List<String[]> records = csvReader.readAll();
 
-            records.forEach(url -> {
+            for(String[] url: records) {
                 callProxyServer(roundRobinIterator.iterator().next(), url[0]);
-            });
+                urlCount++;
+                System.out.println("Url Count:: "+urlCount);
+            }
 
         } catch (IOException | CsvException e) {
             e.printStackTrace();

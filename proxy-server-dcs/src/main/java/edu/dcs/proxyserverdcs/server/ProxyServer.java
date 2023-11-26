@@ -51,9 +51,11 @@ public class ProxyServer {
     int multicastPort;
     int multicastFrequency;
 
+    int failedInternetCalls = 0;
+
     int totalNumOfDirectRequests = 0;
     int totalNumOfFalsePositive = 0;
-    int totalNumOfTruePositive = 0;
+    // int totalNumOfTruePositive = 0;
 
     @Value("${server.port}")
     String serverPort;
@@ -118,14 +120,14 @@ public class ProxyServer {
 
             } else {
                 // Case of true positive
-                totalNumOfTruePositive++;
+                // totalNumOfTruePositive++;
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
         logger.info("****** Total Requests On this Proxy Server: {}", totalNumOfDirectRequests);
         logger.info("****** False posititves: {}", totalNumOfFalsePositive);
-        logger.info("****** True posititves: {}", totalNumOfTruePositive);
+        // logger.info("****** True posititves: {}", totalNumOfTruePositive);
         return response;
     }
 
@@ -192,9 +194,14 @@ public class ProxyServer {
             // Set a timeout of 5 seconds
             responseContent = future.get(5, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
-            System.out.println("API call timed out");
+            failedInternetCalls++;
+            logger.info("API call timed out");
+            logger.info("failed internet call {}", failedInternetCalls);
+
         } catch (Exception e) {
-            e.printStackTrace();
+            failedInternetCalls++;
+            System.out.println("Exception while calling internet");
+            // e.printStackTrace();
         } finally {
             executor.shutdown();
         }
@@ -264,7 +271,7 @@ public class ProxyServer {
                 socket.joinGroup(new InetSocketAddress(group, multicastPort), null);
 
                 while (true) {
-                    byte[] buffer = new byte[1024];
+                    byte[] buffer = new byte[90000];
                     DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
 
                     socket.receive(receivePacket);
