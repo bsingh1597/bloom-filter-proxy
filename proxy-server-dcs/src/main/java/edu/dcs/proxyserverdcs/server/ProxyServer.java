@@ -22,6 +22,11 @@ import java.net.UnknownHostException;
 import java.util.BitSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,9 +51,11 @@ public class ProxyServer {
     int multicastPort;
     int multicastFrequency;
 
+    int failedInternetCalls = 0;
+
     int totalNumOfDirectRequests = 0;
     int totalNumOfFalsePositive = 0;
-    int totalNumOfTruePositive = 0;
+    // int totalNumOfTruePositive = 0;
 
     @Value("${server.port}")
     String serverPort;
@@ -79,11 +86,13 @@ public class ProxyServer {
                 } else {
                     // if response is null then Call internet
                     response = fetchRequestFromInternet(url);
-                    // After fetch from internet put in cache
-                    appendCache(url, response);
-                    totalNumOfDirectRequests++;
-                    // Append in Bloom filter
-                    filter.add(url);
+                    if(response != null) {
+                        // After fetch from internet put in cache
+                        appendCache(url, response);
+                        totalNumOfDirectRequests++;
+                        // Append in Bloom filter
+                        filter.add(url);
+                    }
                 }
 
             }
@@ -100,25 +109,25 @@ public class ProxyServer {
 
         try {
             if (response == null) {
-            // Case of false positive
-            totalNumOfFalsePositive++;
-            // if response is null then Call internet
-            response = fetchRequestFromInternet(url);
-            // After fetch from internet put in cache
-            appendCache(url, response);
-            // Append in Bloom filter
-            filter.add(url);
+                // Case of false positive
+                totalNumOfFalsePositive++;
+                // if response is null then Call internet
+                response = fetchRequestFromInternet(url);
+                // After fetch from internet put in cache
+                appendCache(url, response);
+                // Append in Bloom filter
+                filter.add(url);
 
-        } else {
-            // Case of true positive
-            totalNumOfTruePositive++;
-        }
+            } else {
+                // Case of true positive
+                // totalNumOfTruePositive++;
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
         logger.info("****** Total Requests On this Proxy Server: {}", totalNumOfDirectRequests);
         logger.info("****** False posititves: {}", totalNumOfFalsePositive);
-        logger.info("****** True posititves: {}", totalNumOfTruePositive);
+        // logger.info("****** True posititves: {}", totalNumOfTruePositive);
         return response;
     }
 
@@ -175,28 +184,77 @@ public class ProxyServer {
      */
     public String fetchRequestFromInternet(String urlString) {
         URL url;
-        StringBuilder responseContent = null;
+        String responseContent = null;
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+
         try {
-            url = new URI(urlString).toURL();
+            url = new URL(urlString);
+            Future<String> future = executor.submit(() -> performApiCall(url));
+
+            // Set a timeout of 5 seconds
+            responseContent = future.get(5, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            failedInternetCalls++;
+            logger.info("API call timed out");
+            logger.info("failed internet call {}", failedInternetCalls);
+
+        } catch (Exception e) {
+            failedInternetCalls++;
+            System.out.println("Exception while calling internet");
+            // e.printStackTrace();
+        } finally {
+            executor.shutdown();
+        }
+        /*
+         * try {
+         * 
+         * url = new URI(urlString).toURL();
+         * HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+         * connection.setRequestMethod("GET");
+         * connection.setConnectTimeout(5000);
+         * connection.setConnectTimeout(5000);
+         * // int responseCode = connection.getResponseCode();
+         * // System.out.println("Response Code: " + responseCode);
+         * BufferedReader reader = new BufferedReader(new
+         * InputStreamReader(connection.getInputStream()));
+         * String line;
+         * responseContent = new StringBuilder();
+         * while ((line = reader.readLine()) != null) {
+         * responseContent.append(line);
+         * break;
+         * }
+         * reader.close();
+         * } catch (IOException e) {
+         * e.printStackTrace();
+         * } catch (URISyntaxException e) {
+         * e.printStackTrace();
+         * }
+         */
+
+        return responseContent != null ? responseContent.toString() : null;
+    }
+
+    private String performApiCall(URL url) {
+        try {
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
-            // int responseCode = connection.getResponseCode();
-            // System.out.println("Response Code: " + responseCode);
+
             BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            StringBuilder responseContent = new StringBuilder();
             String line;
-            responseContent = new StringBuilder();
+
             while ((line = reader.readLine()) != null) {
                 responseContent.append(line);
                 break;
             }
-            reader.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (URISyntaxException e) {
-            e.printStackTrace();
-        }
 
-        return responseContent != null ? responseContent.toString() : null;
+            reader.close();
+            connection.disconnect();
+
+            return responseContent.toString();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public void appendCache(String url, String content) {
@@ -213,7 +271,7 @@ public class ProxyServer {
                 socket.joinGroup(new InetSocketAddress(group, multicastPort), null);
 
                 while (true) {
-                    byte[] buffer = new byte[1024];
+                    byte[] buffer = new byte[90000];
                     DatagramPacket receivePacket = new DatagramPacket(buffer, buffer.length);
 
                     socket.receive(receivePacket);
