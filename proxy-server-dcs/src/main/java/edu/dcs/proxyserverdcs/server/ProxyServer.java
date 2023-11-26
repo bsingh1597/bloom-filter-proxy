@@ -92,6 +92,7 @@ public class ProxyServer {
                         totalNumOfDirectRequests++;
                         // Append in Bloom filter
                         filter.add(url);
+                    logger.info("Direct req {}", totalNumOfDirectRequests);
                     }
                 }
 
@@ -114,9 +115,12 @@ public class ProxyServer {
                 // if response is null then Call internet
                 response = fetchRequestFromInternet(url);
                 // After fetch from internet put in cache
-                appendCache(url, response);
-                // Append in Bloom filter
-                filter.add(url);
+                if (response != null) {
+                    // After fetch from internet put in cache
+                    appendCache(url, response);
+                    // Append in Bloom filter
+                    filter.add(url);
+                }
 
             } else {
                 // Case of true positive
@@ -125,7 +129,6 @@ public class ProxyServer {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        logger.info("****** Total Requests On this Proxy Server: {}", totalNumOfDirectRequests);
         logger.info("****** False posititves: {}", totalNumOfFalsePositive);
         // logger.info("****** True posititves: {}", totalNumOfTruePositive);
         return response;
