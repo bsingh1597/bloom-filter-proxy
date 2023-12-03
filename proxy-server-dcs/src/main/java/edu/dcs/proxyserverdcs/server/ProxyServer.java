@@ -49,7 +49,6 @@ public class ProxyServer {
     ConcurrentHashMap<Integer, BitSet> filterMap = new ConcurrentHashMap<>();
     String multicastGroup;
     int multicastPort;
-    int multicastFrequency;
 
     int failedInternetCalls = 0;
 
@@ -59,6 +58,9 @@ public class ProxyServer {
 
     @Value("${server.port}")
     String serverPort;
+
+    @Value("${multicast.freq}")
+    int multicastFrequency;
 
     @Autowired
     public ProxyServer(@Value("${multicast.addr}") String multicastGroup,
@@ -327,7 +329,6 @@ public class ProxyServer {
                 socket.setTimeToLive(5);
 
                 while (true) {
-                    // logger.info("Publish message");
                     // Create an object representing both the string and BitSet
                     MessageObject messageObject = new MessageObject(serverPort, filter.getBitSet());
                     // Serialize the object to JSON
@@ -341,7 +342,7 @@ public class ProxyServer {
                         socket.send(packet);
                         logger.info("Message sent.");
                         try {
-                            Thread.sleep(15000);
+                            Thread.sleep(multicastFrequency);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
