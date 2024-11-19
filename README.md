@@ -12,7 +12,7 @@ implement a set of interacting proxy servers that can communicate with
 each other for a possible cache hit rather than directly calling the
 internet.
 
-In essence, this project is an implementation of Summary Cache \[1\],
+In essence, this project implements Summary Cache \[1\],
 where each proxy maintains a summary of the URLs of cached documents for
 every participating proxy. It checks these summaries for potential hits
 before sending any queries to the internet. Sharing caches among web
@@ -33,7 +33,7 @@ To start with, we were fascinated by the concept of Bloom filters and
 decided to gain hands-on experience in implementing them. Following our
 professor\'s recommendation, this project is inspired by the first
 example in the paper 'Sample network Application having distributed
-caching in the paper Network Applications using Bloom Filters: A Survey'
+caching in the paper Network Applications using Bloom Filters: A Survey
 \[2\].
 
 Let us consider a scenario where this project could be particularly
@@ -60,7 +60,7 @@ updated. In this scenario sending the complete Hash Table, which might
 consist of millions of caches, from every proxy server in this scenario
 would be extremely costly for the network. For a solution, we introduce
 something called the *Summary cache* \[1\] that uses Bloom Filters: a
-fixed size bit-array. Let's understand Bloom Filters in depth.
+fixed-size bit-array. Let's understand Bloom Filters in depth.
 
 ## Background Work: Bloom Filter
 
@@ -73,18 +73,23 @@ the set, but not removed (though this can be addressed with the counting
 bloom filter variant); the more items added, the larger the probability
 of false positives.
 
+![picture1](https://github.com/user-attachments/assets/6ad7ce81-d72c-4312-8587-9322363f59d7)
+
+![Picture1a](https://github.com/user-attachments/assets/57efdde5-ff13-43e3-a06b-70b4d8644d4c)
+
+
 A Bloom Filter is a bit-array, as depicted in the figures above. To add
 an element in the filter, that element passes through a certain number
 of distinct hash functions. Based on the resolved index from those hash
-functions, corresponding indexes in the bit-array (Bloom Filter) are set
+functions, corresponding indexes in the bit array (Bloom Filter) are set
 to 1. Similarly, to check if an element is present, that element
 undergoes the same hash functions, and the resolved indexes are checked
 in Bloom Filter to see if it contains 1 or 0. If all of them contain 1,
-then the element is possibly present; else if any of them contains 0,
+then the element is possibly present; else if any of them contain 0,
 then definitely not present.
 
 For example, in Figure 1: *x*, *y* and *z* elements are pas through 3
-hash function, updating the bit-array (Bloom Filter). When we check if
+hash function, updating the bit array (Bloom Filter). When we check if
 *w* is present or not, the third hash function points to an index marked
 0. This means *w* is definitely not present in the pool of stored
 elements.
@@ -92,25 +97,28 @@ elements.
 Conversely, in Figure 2: *a1* and *a2* are passed through three hash
 functions, updating the Bloom Filter. However, when we check if element
 *b* is present in the cache, all three hash functions are resolved to
-index which are marked 1 in the Bloom Filter. Thus, this is the case of
+the index which are marked 1 in the Bloom Filter. Thus, this is the case of
 *false positive,* where although an element is not present in the cache,
 still the indexes are resolved to 1.
 
-Technical Aspect
+![picture2](https://github.com/user-attachments/assets/bf7c6e33-fa07-4325-bc90-6765c17dd999)
 
-## Architecture
 
-![](media/image4.png){width="6.854168853893263in"
-height="6.854168853893263in"}
+## Technical Aspect
 
-Techniques:
+### Architecture
 
-1.  A simple web client coded in Java using Maven requests the webpages.
+<img width="494" alt="architecture_diagram" src="https://github.com/user-attachments/assets/ff1c5750-961c-4386-898a-13128a0720fa">
 
-2.  Requests are distributed in round-robin fashion to Proxy Servers.
+
+#### Techniques:
+
+1.  A simple web client coded in Java using Maven requests the web pages.
+
+2.  Requests are distributed in a round-robin fashion to Proxy Servers.
 
     1.  Round-robin is implemented as a generic class instantiated using
-        the Url of the next proxy servers.
+        the URL of the next proxy servers.
 
     2.  The RounRobin class has a method *next()*, which returns the URL
         of the next proxy server in sequence to be called.
@@ -131,23 +139,20 @@ Techniques:
     Server, its existence is checked in the Bloom Filters of other proxy
     servers.
 
-    1.  If Bloom filter of some of the Proxy Server gives a possible
-        positive result, then that Proxy Server is called for the
+    1.  If the Bloom filter of some of the Proxy Server gives a possible
+        a positive result, then that Proxy Server is called for the
         webpage.
 
-7.  If the webpage exists in that Proxy Server, then webpage is sent to
-    the requesting server and the first Proxy Server delivers the result
+7.  If the webpage exists in that Proxy Server, then the webpage is sent to
+    the requesting server and the first Proxy Server deliver the result
     to the client.
 
 8.  If the URL does not exist in the latter proxy server, then it
-    fetches that from the internet, updates its cache and Bloom Filter.
+    fetches that from the internet, updates its cache, and Bloom Filter.
 
 9.  The Bloom Filter is multicast every 30 seconds to keep the filters
     updated in other proxies; this is also configurable from the
     \`application.properties\`.
-
-Github:
-*[https://github.com/bsingh1597/bloom-filter-proxy.git]{.underline}*
 
 ## Evaluation
 
@@ -155,7 +160,7 @@ We evaluated our project by comparing the theoretical probability of
 false positives of the bloom filter vs actual probability of false
 positives.
 
-## Dataset
+### Dataset
 
 We employed the dataset available on
 [www.data.world](http://www.data.world/), specifically at the following
@@ -167,7 +172,7 @@ This dataset includes links extracted from newsletters from June 18,
 In our project, we extracted URLs that generated an HTTP response of 200
 and utilized this subset.
 
-## Experimental setup
+### Experimental setup
 
 The theoretical probability of false positives in a Bloom filter can be
 calculated based on the size of the filter, the number of hash functions
@@ -176,36 +181,39 @@ for the false positive probability $p\ $i.s. derived from the
 assumptions of a perfect hash function and independence between hash
 functions.
 
-For fixed filter size $n\ $ , we calculated theoretical and actual
-probabilities for a different number of elements in the filter $m\ $ .
+For fixed filter size $n\ $, we calculated theoretical and actual
+probabilities for a different number of elements in the filter $m\ $.
 
 We calculated the optimum number of hash functions for each combination
 of $m\ $ and $n\ $ using the below formula:
 
 $$k = \frac{m}{n}\ln 2$$
 
-### Theoretical Probability of false positives \[3\]:
+#### Theoretical Probability of false positives \[3\]:
 
 $$p = \left( 1 - \left\lbrack 1 - \frac{1}{m} \right\rbrack^{kn} \right)^{k} \approx \left( 1 - e^{- \frac{kn}{m}} \right)^{k}$$
 
-$n\ $: Number of elements in filter
+$n\ $: Number of elements in the filter
 
 $m\ $: Filter size
 
 $k\ $: Number of hash functions
 
 During the execution of the project, URLs are inserted into the Bloom
-filter, and set membership queries are performed. The observed or actual
+filter and set membership queries are performed. The observed or actual
 probability of false positives is determined by measuring the number of
 instances where the Bloom filter incorrectly indicates that an element
 is a member of the set when it is not.
 
-### Actual probability calculated as:
+#### Actual probability calculated as:
 
 Average of *Number of false positive / Total number of requests made to
 proxy server*
 
-##  Results
+####  Results
+
+![graph](https://github.com/user-attachments/assets/9154f16c-6996-47b9-bb63-474cab20ff72)
+
 
 We can observe from the line chart that both probabilities exhibit
 similar trends. The variance between the theoretical and actual
@@ -227,8 +235,8 @@ client and proxy server system leverages caching, Bloom filters, and
 inter-proxy communication. The caching mechanism implemented by the
 proxy servers significantly reduces latency by storing previously
 requested URLs locally. This feature enables the servers to serve
-content directly to clients without making redundant calls to internet,
-resulting in a more responsive user experience. The incorporation of
+content directly to clients without making redundant calls to the internet,
+resulting in a more responsive user experience. Incorporating
 Bloom filters further enhances the system\'s efficiency by quickly
 determining the existence of a URL in the proxy server\'s cache. The
 inter-proxy communication through multicasting Bloom filters adds a
@@ -239,9 +247,7 @@ the web.
 
 ## References
 
-1.  Summary cache: a scalable wide-area Web cache sharing protocol
-
-<!-- -->
+1.  Summary cache: a scalable wide-area Web cache-sharing protocol
 
 2.  Network Applications of Bloom Filters: A Survey - Andrei Broder and
     Michael Mitzenmacher
